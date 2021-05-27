@@ -8,7 +8,8 @@ The pipeline is simple: add your character model to the game as a prefab asset, 
 ![Screenshot](readmeFiles/charScript.jpg)
 
 Then, create a new CharacterData asset - this is a ScriptableObject with some basic data for you to fill out, like the character name and color in the editor:
-![Screenshot](readmeFiles/charDataAsset.jpg)
+![Screenshot](readmeFiles/charDataAsset1.jpg)
+![Screenshot](readmeFiles/charDataAsset2.jpg)
 
 Now, drag your CharacterData asset to its respective field in your prefab:
 ![Screenshot](readmeFiles/charDataDrag.jpg)
@@ -31,3 +32,6 @@ You can now create dialog using your character! Add an entry, and start typing a
 You can press Enter at the beginning on the text box to switch speakers, or you can also double press Enter in quick succession to add a brand new entry. Right click on entries for extra options, like deleting it or setting the main speaker of the conversation:
 
 To preview your file in-game, just press the preview button. Alternatively, you can save the file to disk as a .dlg file, and use it within your own pipeline!
+
+![Screenshot](readmeFiles/demo1.jpg)
+![Screenshot](readmeFiles/demo2.jpg)
