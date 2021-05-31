@@ -21,7 +21,7 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
     StyleSheet dialogEntryStyle;
     ScrollView scrollView;
     int idCounter = 0;
-    [SerializeField] public static List<CharacterData> characters = new List<CharacterData>();
+    public static List<CharacterData> characters = new List<CharacterData>();
     float characterAdvance;
     public string serializationFilePath;
     public bool deserialize = false;
@@ -90,6 +90,9 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
         buttonContainer.style.flexDirection = FlexDirection.Row;
         root.Add(buttonContainer);
 
+        Button testButton = new Button(TestButton) { text = "TEST" };
+        buttonContainer.Add(testButton);
+
         Button newFileButton = new Button(NewFile) { text = "New" };
         buttonContainer.Add(newFileButton);
 
@@ -129,6 +132,11 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
             RestoreDialogFile(serializationFilePath);
             deserialize = false;
         }
+    }
+
+    public void TestButton() {
+        scrollView.Add(new ScrollingLabel("COOL BIG LONG TEXT HERE DUDE LOOK AT THIS!"));
+        scrollView.Add(new ScrollingLabel("Smaller one goes here"));
     }
 
     //adds main speaker graphic to the conversation entries
@@ -411,7 +419,8 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
 
                 for (int i = 0; i < characters.Count; i++) {
                     if (!string.IsNullOrEmpty(characters[i].prefabPath)) {
-                        idles.Add(GetCurrentCharacterIdle(characters[i]));
+                        //idles.Add(GetCurrentCharacterIdle(characters[i]));
+                        idles.Add("");
                     } else {
                         idles.Add("");
                     }
@@ -613,13 +622,17 @@ public class DialogDragger : MouseManipulator {
         if ((CanStartManipulation(evt) && !active)) {
             foreach (VisualElement child in root.Children()) {
                 if (child.GetType() == typeof(DialogEntry)) {
-                    if (child.layout.Contains(evt.localMousePosition + root.scrollOffset)) {
+                    if (child.layout.Contains((evt.localMousePosition + root.scrollOffset))) {
                         active = true;
                         Debug.Log("Found dragged element with id " + ((DialogEntry)child).id);
                         draggedElement = (DialogEntry)child;
+                    } else {
+                        Debug.Log("NOT DRAGGING: "+ evt.localMousePosition + root.scrollOffset);
                     }
                 }
             }
+
+            evt.StopImmediatePropagation();
         }
     }
 

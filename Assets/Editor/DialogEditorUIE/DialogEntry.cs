@@ -25,7 +25,7 @@ namespace DialogTool {
         private string animClip = "";
         private string idleClip = "";
         private bool supportsAnimations = false;
-        public Button nameButton;
+        public ScrollingLabel nameButton;
         public Button animButton;
         public Image portrait;
         public Image mainSpeakerIcon;
@@ -52,7 +52,7 @@ namespace DialogTool {
             id = _id;
             backgroundContainer = ui.Q<VisualElement>("dialog_entry_container");
             mainSpeakerIcon = ui.Q<Image>("main_speaker_icon");
-            nameButton = ui.Q<Button>("name_button");
+            nameButton = ui.Q<ScrollingLabel>("name_button");
             animButton = ui.Q<Button>("animation_button");
             dialogText = ui.Q<TextField>("dialog_text");
             animBadge = ui.Q<TextElement>("animation_clip_badge");
@@ -138,11 +138,11 @@ namespace DialogTool {
                 customLabel = name;
             }
 
-            nameButton.text = name;
+            nameButton.text.text = name;
         }
 
         public string GetSpeakerName() {
-            return nameButton.text;
+            return nameButton.text.text;
         }
 
         //updates animation UI, hiding elementes in case of changes
@@ -164,7 +164,7 @@ namespace DialogTool {
                     animBadge.style.display = DisplayStyle.Flex;
                     animButton.text = "Animation";
                     if (string.IsNullOrEmpty(animClip)) {
-                        idleClip = EditorWindow.GetWindow<DialogEditorUIE>().GetCurrentCharacterIdle(character);
+                        idleClip = EditorWindow.GetWindow<DialogEditorUIE>("UPDATE ANIM UI").GetCurrentCharacterIdle(character);
                         animBadge.name = "animation_clip_badge_idle";
                         animBadge.text = "Idle";
                     } else {
@@ -310,12 +310,12 @@ namespace DialogTool {
 
         //sets character as main speaker - you can only have one of these
         public void SetAsMainSpeaker(DropdownMenuAction evt) {
-            EditorWindow.GetWindow<DialogEditorUIE>().SetMainSpeaker(character);
+            EditorWindow.GetWindow<DialogEditorUIE>("SET MAIN SPEAKER").SetMainSpeaker(character);
         }
 
         public void DeleteEntry(DropdownMenuAction evt) {
             if (EditorUtility.DisplayDialog("", "Delete this entry?", "Ok", "Cancel")) {
-                EditorWindow.GetWindow<DialogEditorUIE>().RemoveEntry(animButton.GetFirstAncestorOfType<DialogEntry>());
+                EditorWindow.GetWindow<DialogEditorUIE>("REMOVE ENTRY").RemoveEntry(animButton.GetFirstAncestorOfType<DialogEntry>());
             }
         }
 
@@ -407,7 +407,7 @@ namespace DialogTool {
         public void SetIdleClipFromContextMenu(DropdownMenuAction evt) {
             idleClip = evt.name.Substring(evt.name.LastIndexOf("/") + 1);
             UpdateAnimationUI();
-            EditorWindow.GetWindow<DialogEditorUIE>().UpdateIdles(idleClip, character);
+            EditorWindow.GetWindow<DialogEditorUIE>("SET IDLE FROM CONTEXT").UpdateIdles(idleClip, character);
         }
 
         //directly set the clip, useful for serialization, since Unity can break on all sorts of situations where it has to access components for GameObjects while serializing
@@ -443,7 +443,7 @@ namespace DialogTool {
                     KeyDownEvent backspaceEvent = KeyDownEvent.GetPooled(actionEvent);
                     dialogText.SendEvent(backspaceEvent);
                     //character = ((DialogEditorUIE)sourceWindow).CycleCharacter(character);
-                    character = EditorWindow.GetWindow<DialogEditorUIE>().CycleCharacter(character);
+                    character = EditorWindow.GetWindow<DialogEditorUIE>("CYCLE CHARACTER").CycleCharacter(character);
                     SetCharacter(character);
                 } else if ((dialogText.cursorIndex == dialogText.text.Length) && (dialogText.text.Length > 2)) {
 
@@ -496,7 +496,8 @@ namespace DialogTool {
                         if (characterIndex >= 0) {
                             data.characterIndex = (ushort)characterIndex;
                         } else {
-                            throw new Exception("Couldn't find character in assetNames with index " + data.characterIndex.ToString() + "!");
+                            Action test = () => { for (int i = 0; i < assetNames.Count; i++) { Debug.Log(assetNames[i]); } };
+                            throw new Exception("Couldn't find character in assetNames with index " + data.characterIndex.ToString() + "!\n Here were the assetnames:\n" + test);
                         }
                     } else {
                         data.characterIndex = 0;
@@ -585,7 +586,12 @@ namespace DialogTool {
             supportsAnimations = data.supportsAnimations;
 
             if (data.characterIndex >= 0) {
-                character = characterList[data.characterIndex];
+                try {
+                    character = characterList[data.characterIndex];
+                } catch (ArgumentOutOfRangeException e) {
+                    Debug.Log("Actual value: " + e.ActualValue);
+                }
+
                 SetCharacter(character);
             }
 
@@ -663,12 +669,36 @@ public class DragManipulator : MouseManipulator {
         target.RegisterCallback<MouseDownEvent>(OnMouseDown);
         target.RegisterCallback<MouseMoveEvent>(OnMouseMove);
         target.RegisterCallback<MouseUpEvent>(OnMouseUp);
+        target.RegisterCallback<KeyDownEvent>(EscapeBailout, TrickleDown.NoTrickleDown);
     }
 
     protected override void UnregisterCallbacksFromTarget() {
         target.UnregisterCallback<MouseDownEvent>(OnMouseDown);
         target.UnregisterCallback<MouseMoveEvent>(OnMouseMove);
         target.UnregisterCallback<MouseUpEvent>(OnMouseUp);
+        target.UnregisterCallback<KeyDownEvent>(EscapeBailout, TrickleDown.NoTrickleDown);
+    }
+
+    public void EscapeBailout(KeyDownEvent evt) {
+        if ((enabled) && (evt.keyCode == KeyCode.Escape)) {
+            draggedElement.ReleaseMouse();
+            if (floatingElement != null) {
+                floatingElement.parent.Remove(floatingElement);
+                floatingElement = null;
+            }
+
+            if (lastHoveredElement != null) {
+                lastHoveredElement.EnableInClassList("HoverStyle", false);
+                lastHoveredElement = null;
+            }
+
+            if (hoveredElement != null) {
+                hoveredElement.EnableInClassList("HoverStyle", false);
+                hoveredElement = null;
+            }
+
+            enabled = false;
+        }
     }
 
     public void OnMouseDown(MouseDownEvent evt) {
@@ -682,20 +712,10 @@ public class DragManipulator : MouseManipulator {
 
     public void OnMouseMove(MouseMoveEvent evt) {
         if (enabled) {
-            if (Input.GetKeyDown(KeyCode.Escape)) {
-                draggedElement.ReleaseMouse();
-                return;
-            }
-
+            draggedElement.CaptureMouse();
             if (!distanceTriggered) {
                 if (Vector2.Distance(dragOrigin, evt.mousePosition) > 15f) {
                     distanceTriggered = true;
-                    if (Input.GetKeyDown(KeyCode.Escape)) {
-                        draggedElement.ReleaseMouse();
-                        return;
-                    } else {
-                        draggedElement.CaptureMouse();
-                    }
                 } else {
                     return;
                 }
@@ -734,16 +754,9 @@ public class DragManipulator : MouseManipulator {
             }
 
             if ((lastHoveredElement != null) && (hoveredElement != lastHoveredElement)) {
-
-                lastHoveredElement.style.paddingTop = originalHoverElementMargins.Item1;
-                lastHoveredElement.style.paddingBottom = originalHoverElementMargins.Item2;
-                lastHoveredElement.style.backgroundColor = originalHoverElementMargins.Item3;
-                lastHoveredElement.style.opacity = originalHoverElementMargins.Item4;
-                originalHoverElementMargins = new Tuple<StyleLength, StyleLength, StyleColor, StyleFloat>(hoveredElement.style.paddingTop, hoveredElement.style.paddingBottom, hoveredElement.style.backgroundColor, hoveredElement.style.opacity);
-                hoveredElement.style.paddingTop = 7;
-                hoveredElement.style.paddingBottom = 7;
-                hoveredElement.style.backgroundColor = Color.cyan;
-                hoveredElement.style.opacity = 0.65f;
+                lastHoveredElement.EnableInClassList("HoverStyle", false);
+                hoveredElement.AddToClassList("HoverStyle");
+                hoveredElement.EnableInClassList("HoverStyle", true);
             }
 
             lastHoveredElement = hoveredElement;
@@ -751,11 +764,8 @@ public class DragManipulator : MouseManipulator {
     }
 
     public void OnMouseUp(MouseUpEvent evt) {
-        if (lastHoveredElement != null) {
-            lastHoveredElement.style.paddingTop = originalHoverElementMargins.Item1;
-            lastHoveredElement.style.paddingBottom = originalHoverElementMargins.Item2;
-            lastHoveredElement.style.backgroundColor = originalHoverElementMargins.Item3;
-            lastHoveredElement.style.opacity = originalHoverElementMargins.Item4;
+        if ((enabled) && (lastHoveredElement != null)) {
+            lastHoveredElement.EnableInClassList("HoverStyle", false);
 
             if (lastHoveredElement != draggedElement) {
                 int originalIndex = draggedElement.parent.IndexOf(draggedElement);
@@ -766,7 +776,7 @@ public class DragManipulator : MouseManipulator {
                 draggedParent.Insert(newIndex, draggedElement);
             }
 
-            DialogEditorUIE.root.Remove(floatingElement);
+            floatingElement.parent.Remove(floatingElement);
         }
 
         dragOrigin = Vector2.zero;
@@ -777,5 +787,66 @@ public class DragManipulator : MouseManipulator {
         lastHoveredElement = null;
         enabled = false;
         distanceTriggered = false;
+    }
+}
+
+namespace DialogTool {
+    public class ScrollingLabel : VisualElement {
+        Button btn;
+        ScrollView scrollView;
+        public TextElement text;
+        public float startWaitValue = 1f;
+        public float endWaitValue = 1.25f;
+        double stopTimer = 0;
+        bool resetTimer = false;
+        ValueAnimation<float> scrollAnim;
+
+        public class Factory : UxmlFactory<ScrollingLabel, Traits> { }
+
+        public class Traits : UxmlTraits {
+            UxmlStringAttributeDescription text = new UxmlStringAttributeDescription() { name = "scrollingLabel" };
+
+            public override IEnumerable<UxmlChildElementDescription> uxmlChildElementsDescription {
+                get { yield break; }
+            }
+
+            public override void Init(VisualElement ve, IUxmlAttributes bag, CreationContext cc) {
+                base.Init(ve, bag, cc);
+                ((ScrollingLabel)ve).text.text = text.GetValueFromBag(bag, cc);
+            }
+        }
+
+        public ScrollingLabel() : this("Default Label") { }
+
+        public ScrollingLabel(string labelText) {
+            scrollView = new ScrollView(ScrollViewMode.Horizontal);
+            scrollView.showHorizontal = false;
+            btn = new Button();
+            //btn.style.width = 100;
+            btn.Add(scrollView);
+            text = new TextElement() { text = labelText };
+            scrollView.Add(text);
+            Add(btn);
+
+            scrollAnim = text.experimental.animation.Start(scrollView.horizontalScroller.lowValue, scrollView.horizontalScroller.highValue, 10000, (x, y) => { UpdateTextScroll(x, y); });
+            scrollAnim.easingCurve = Easing.InOutBack;
+            scrollAnim.onAnimationCompleted = ResetTextScroll;
+            scrollAnim.autoRecycle = true;
+            btn.RegisterCallback<TooltipEvent>((x) => x.tooltip = labelText, TrickleDown.NoTrickleDown);
+        }
+
+        public void ResetTextScroll() {
+            scrollAnim = text.experimental.animation.Start(scrollView.horizontalScroller.lowValue, scrollView.horizontalScroller.highValue, 10000, (x, y) => { UpdateTextScroll(x, y); });
+            scrollAnim.easingCurve = Easing.InOutBack;
+            scrollAnim.onAnimationCompleted = ResetTextScroll;
+            scrollAnim.autoRecycle = true;
+        }
+
+        public void UpdateTextScroll(VisualElement ui, float value) {
+            scrollAnim.to = scrollView.horizontalScroller.highValue;
+            scrollAnim.durationMs = 1000 * ((((int)scrollAnim.to + (int)btn.style.width.value.value)) / 25);
+            scrollView.horizontalScroller.style.display = DisplayStyle.None;
+            scrollView.horizontalScroller.value = value;
+        }
     }
 }

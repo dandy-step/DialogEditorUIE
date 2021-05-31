@@ -3,6 +3,7 @@
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xmlns:engine="UnityEngine.UIElements"
     xmlns:editor="UnityEditor.UIElements"
+    xmlns:dlg="DialogTool"
 
 xsi:noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd"
 xsi:schemaLocation="
@@ -19,7 +20,7 @@ xsi:schemaLocation="
     
     <engine:VisualElement class="VerticalContainer" name="dialog_portrait_container">
       <!-- <engine:Image name="portrait" display="none"/> -->
-      <engine:Button name="name_button" text="John Doe"/>
+      <dlg:ScrollingLabel name="name_button" text="John Doe"/>
       <engine:Button name="animation_button" text="Animation"/>
     </engine:VisualElement>
 

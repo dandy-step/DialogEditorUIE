@@ -150,3 +150,9 @@
 	position: absolute;
 	display: none;
 }
+
+.HoverStyle > * {
+	padding-top: 7px;
+	padding-bottom: 7px;
+	background-color: #20B2AA;
+}

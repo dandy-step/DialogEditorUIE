@@ -1,0 +1,9 @@
+*.sln
+.vs*
+Library/*
+Logs/*
+Packages/*
+Temp/*
+obj/*
+Assets/Data/Dialog/*
+*.csproj
