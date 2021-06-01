@@ -61,6 +61,7 @@ namespace DialogTool {
 
 
             //manipulators and events
+            //nameButton.RegisterCallback<MouseDownEvent>(NameButtonMenu)
             nameButtonMenu = new ContextualMenuManipulator(NameButtonMenu);
             nameButtonMenu.activators.Add(new ManipulatorActivationFilter() { button = MouseButton.LeftMouse });
             nameButton.AddManipulator(nameButtonMenu);
@@ -68,6 +69,8 @@ namespace DialogTool {
             animButtonMenu = new ContextualMenuManipulator(AnimButtonMenu);
             animButtonMenu.activators.Add(new ManipulatorActivationFilter() { button = MouseButton.LeftMouse });
             animButton.AddManipulator(animButtonMenu);
+
+            //drag manipulator
             this.AddManipulator(new DragManipulator());
 
             mainContextualMenu = new ContextualMenuManipulator(MainContextualMenu);
@@ -138,11 +141,11 @@ namespace DialogTool {
                 customLabel = name;
             }
 
-            nameButton.text.text = name;
+            nameButton.label.text = name;
         }
 
         public string GetSpeakerName() {
-            return nameButton.text.text;
+            return nameButton.label.text;
         }
 
         //updates animation UI, hiding elementes in case of changes
@@ -162,7 +165,7 @@ namespace DialogTool {
                 } else {
                     animButton.style.display = DisplayStyle.Flex;
                     animBadge.style.display = DisplayStyle.Flex;
-                    animButton.text = "Animation";
+                    animButton.text = "Animation____________";
                     if (string.IsNullOrEmpty(animClip)) {
                         idleClip = EditorWindow.GetWindow<DialogEditorUIE>("UPDATE ANIM UI").GetCurrentCharacterIdle(character);
                         animBadge.name = "animation_clip_badge_idle";
@@ -352,6 +355,9 @@ namespace DialogTool {
         
         //allows you to set a custom name for a specific dialog entry, overriding the CharacterData
         public void NameButtonMenu(ContextualMenuPopulateEvent evt) {
+            Debug.Log("Context received event, " + evt.propagationPhase);
+            Debug.Log("Context menu phase: " + evt.propagationPhase);
+            evt.StopImmediatePropagation();
             if (showCharacterNamesInNameMenu) {
                 if (!string.IsNullOrEmpty(character.characterName)) {
                     List<string> speakerNames = new List<string>();
@@ -373,8 +379,8 @@ namespace DialogTool {
                 }
             }
 
+            Debug.Log("Event here");
             evt.menu.AppendAction("Custom Name", SetSpeakerNameFromContextMenu, DropdownMenuAction.Status.Normal);
-            evt.StopImmediatePropagation();
         }
 
         //populate list of available animations to set in dialog for our characters in a context menu
@@ -602,53 +608,6 @@ namespace DialogTool {
             CheckIfMainSpeaker();
         }
     }
-
-    //unused, see MultipleChoiceContainer instead
-    //public class MultipleChoiceEntry : VisualElement {
-    //    private Label choiceText;
-    //    public List<string> choices;
-    //    public MultipleChoiceContainer choiceContainer;
-
-    //    public MultipleChoiceEntry(MultipleChoiceContainer container) {
-    //        VisualTreeAsset tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/Editor/DialogEditorUIE/MultipleChoiceEntry.uxml");
-    //        StyleSheet style = AssetDatabase.LoadAssetAtPath<StyleSheet>("Assets/Editor/DialogEditorUIE/DialogEntry.uss");
-
-    //        VisualElement element = tree.CloneTree();
-    //        Button addDialogButton = new Button(AddDialog);
-    //        addDialogButton.text = "ADD DLG";
-    //        element.Add(addDialogButton);
-    //        choiceContainer = element.Q<MultipleChoiceContainer>("choice_container");
-    //        choiceText = element.Q<Label>("choice_text");
-    //        Add(element);
-    //    }
-
-    //    public void SetEntryText(string text) {
-    //        choiceText.text = text;
-    //    }
-
-    //    public void AddDialog() {
-    //        DialogEntry entry = new DialogEntry(0, "TEST TEST TEST", DialogEditorUIE.characters[0]);
-    //        this.Add(entry);
-    //    }
-
-    //    class MultipleChoiceEntrySaveData {
-    //        public char[] magicNumber = new char[4] { 'C', 'H', 'O', 'O' };         //0
-    //        public ushort entryLength = 0;
-    //        public ushort choiceCount = 0;
-    //        public List<string> choices = new List<string>();
-    //    }
-
-    //    public byte[] GenerateSaveData(List<string> assetNames) {
-    //        using (MemoryStream stream = new MemoryStream()) {
-    //            using (BinaryWriter writer = new BinaryWriter(stream)) {
-    //                MultipleChoiceEntrySaveData data = new MultipleChoiceEntrySaveData();
-    //                data.choiceCount = (ushort)choices.Count;
-    //                data.choices = choices;
-    //                return new byte[1];
-    //            }
-    //        }
-    //    }
-    //}
 }
 
 //custom manipulator to enable dragging and reordering the elements in the list, which wasn't a built-in manipulator for UIElements as of Unity 2019.1 - handles highlighting the item being dragged over and repositioning of items
@@ -666,14 +625,14 @@ public class DragManipulator : MouseManipulator {
     }
 
     protected override void RegisterCallbacksOnTarget() {
-        target.RegisterCallback<MouseDownEvent>(OnMouseDown);
+        target.RegisterCallback<MouseDownEvent>(OnMouseDown, TrickleDown.NoTrickleDown);
         target.RegisterCallback<MouseMoveEvent>(OnMouseMove);
         target.RegisterCallback<MouseUpEvent>(OnMouseUp);
         target.RegisterCallback<KeyDownEvent>(EscapeBailout, TrickleDown.NoTrickleDown);
     }
 
     protected override void UnregisterCallbacksFromTarget() {
-        target.UnregisterCallback<MouseDownEvent>(OnMouseDown);
+        target.UnregisterCallback<MouseDownEvent>(OnMouseDown, TrickleDown.NoTrickleDown);
         target.UnregisterCallback<MouseMoveEvent>(OnMouseMove);
         target.UnregisterCallback<MouseUpEvent>(OnMouseUp);
         target.UnregisterCallback<KeyDownEvent>(EscapeBailout, TrickleDown.NoTrickleDown);
@@ -702,11 +661,23 @@ public class DragManipulator : MouseManipulator {
     }
 
     public void OnMouseDown(MouseDownEvent evt) {
-        if (CanStartManipulation(evt)) {
-            enabled = true;
-            dragOrigin = evt.mousePosition;
-            draggedElement = target;
-            evt.StopImmediatePropagation();
+        Debug.Log("Received event, " + evt.propagationPhase);
+        Debug.Log("Curr tgt: " + evt.currentTarget);
+        if ((CanStartManipulation(evt)) && (CanStopManipulation(evt))) {
+            if ((evt.propagationPhase == PropagationPhase.BubbleUp) && (!evt.isImmediatePropagationStopped)) {    //ignore events intended for specific UI classes
+                Debug.Log(evt.propagationPhase);
+                Debug.Log("This: " + this.target);
+                Debug.Log("Bubbles? " + evt.bubbles + " propagation stopped: " + evt.isImmediatePropagationStopped);
+                Debug.Log("Target for dragg: " + evt.target);
+                Debug.Log(evt);
+                enabled = true;
+                dragOrigin = evt.mousePosition;
+                draggedElement = target;
+                evt.StopImmediatePropagation();
+                //evt.target.CaptureMouse();
+            } else {
+                Debug.Log("ignoring drag, event phase: " + evt.propagationPhase);
+            }
         }
     }
 
@@ -764,6 +735,7 @@ public class DragManipulator : MouseManipulator {
     }
 
     public void OnMouseUp(MouseUpEvent evt) {
+        Debug.Log("Mouse up baby");
         if ((enabled) && (lastHoveredElement != null)) {
             lastHoveredElement.EnableInClassList("HoverStyle", false);
 
@@ -774,6 +746,8 @@ public class DragManipulator : MouseManipulator {
 
                 draggedParent.Remove(draggedElement);
                 draggedParent.Insert(newIndex, draggedElement);
+                VisualElement newEntry = draggedParent.ElementAt(newIndex);
+                newEntry.experimental.animation.Start(0.25f, 1f, 1250, (x, y) => { newEntry.style.opacity = new StyleFloat(y); });
             }
 
             floatingElement.parent.Remove(floatingElement);
@@ -787,19 +761,17 @@ public class DragManipulator : MouseManipulator {
         lastHoveredElement = null;
         enabled = false;
         distanceTriggered = false;
+        evt.StopImmediatePropagation();
     }
 }
 
 namespace DialogTool {
-    public class ScrollingLabel : VisualElement {
-        Button btn;
-        ScrollView scrollView;
-        public TextElement text;
+    public class ScrollingLabel : ScrollView {
+        public TextElement label;
         public float startWaitValue = 1f;
         public float endWaitValue = 1.25f;
-        double stopTimer = 0;
-        bool resetTimer = false;
-        ValueAnimation<float> scrollAnim;
+        ValueAnimation<float> scrollAnim = null;
+        ValueAnimation<float> anim = null;
 
         public class Factory : UxmlFactory<ScrollingLabel, Traits> { }
 
@@ -812,41 +784,75 @@ namespace DialogTool {
 
             public override void Init(VisualElement ve, IUxmlAttributes bag, CreationContext cc) {
                 base.Init(ve, bag, cc);
-                ((ScrollingLabel)ve).text.text = text.GetValueFromBag(bag, cc);
+                ((ScrollingLabel)ve).label.text = text.GetValueFromBag(bag, cc);
             }
         }
 
         public ScrollingLabel() : this("Default Label") { }
 
         public ScrollingLabel(string labelText) {
-            scrollView = new ScrollView(ScrollViewMode.Horizontal);
-            scrollView.showHorizontal = false;
-            btn = new Button();
-            //btn.style.width = 100;
-            btn.Add(scrollView);
-            text = new TextElement() { text = labelText };
-            scrollView.Add(text);
-            Add(btn);
+            EnableInClassList("unity-button", true);
+            //this.AddManipulator(new Clickable((x) => { ClickableCall(x); }));
+            showHorizontal = false;
+            showVertical = false;
+            style.width = 80;
+            label = new TextElement() { text = "Really Long Text Goes Here Dude Look At This" };
+            //text.style.unityTextAlign = TextAnchor.MiddleCenter;
+            this.AddManipulator(new Clickable(() => { }));  //fixes drag event capturing
+            this.contentViewport.style.flexDirection = FlexDirection.Row;
+            this.contentContainer.style.flexDirection = FlexDirection.Row;
+            Add(label);
 
-            scrollAnim = text.experimental.animation.Start(scrollView.horizontalScroller.lowValue, scrollView.horizontalScroller.highValue, 10000, (x, y) => { UpdateTextScroll(x, y); });
-            scrollAnim.easingCurve = Easing.InOutBack;
-            scrollAnim.onAnimationCompleted = ResetTextScroll;
-            scrollAnim.autoRecycle = true;
-            btn.RegisterCallback<TooltipEvent>((x) => x.tooltip = labelText, TrickleDown.NoTrickleDown);
+            this.RegisterCallback<TooltipEvent>((x) => { x.tooltip = label.text; x.rect = worldBound;}, TrickleDown.TrickleDown);
+            label.RegisterCallback<GeometryChangedEvent>(CheckIfScrollNecessary, TrickleDown.NoTrickleDown);
+            this.horizontalScroller.style.display = DisplayStyle.None;
+        }
+
+        public void DoAnim(VisualElement x, float y) {
+            this.showHorizontal = false;
+            this.horizontalScroller.style.display = DisplayStyle.None;
+            anim.to = horizontalScroller.highValue;
+            Debug.Log(y + "/" + horizontalScroller.highValue);
+            this.horizontalScroller.value = y;
+            if (y == anim.to) {
+                horizontalScroller.value = 0;
+                anim.Stop();
+                anim.durationMs = 4000;
+                anim.Start();
+            }
         }
 
         public void ResetTextScroll() {
-            scrollAnim = text.experimental.animation.Start(scrollView.horizontalScroller.lowValue, scrollView.horizontalScroller.highValue, 10000, (x, y) => { UpdateTextScroll(x, y); });
-            scrollAnim.easingCurve = Easing.InOutBack;
-            scrollAnim.onAnimationCompleted = ResetTextScroll;
-            scrollAnim.autoRecycle = true;
+            if (label.layout.width > layout.width) {
+                scrollAnim = label.experimental.animation.Start(horizontalScroller.lowValue, horizontalScroller.highValue, 10000, (x, y) => { UpdateTextScroll(x, y); });
+                scrollAnim.easingCurve = Easing.InOutBack;
+                scrollAnim.onAnimationCompleted = ResetTextScroll;
+                scrollAnim.autoRecycle = true;
+            } else {
+                Debug.Log("not resetting anim because of layout dims");
+            }
         }
 
         public void UpdateTextScroll(VisualElement ui, float value) {
-            scrollAnim.to = scrollView.horizontalScroller.highValue;
-            scrollAnim.durationMs = 1000 * ((((int)scrollAnim.to + (int)btn.style.width.value.value)) / 25);
-            scrollView.horizontalScroller.style.display = DisplayStyle.None;
-            scrollView.horizontalScroller.value = value;
+            scrollAnim.to = horizontalScroller.highValue;
+            scrollAnim.durationMs = Mathf.Max(1000 * ((((int)scrollAnim.to + (int)layout.width)) / 25), 3000);
+            horizontalScroller.style.display = DisplayStyle.None;
+            horizontalScroller.value = value;
+        }
+
+        public void CheckIfScrollNecessary(GeometryChangedEvent evt) {
+            if (evt.newRect.width > layout.width) {
+                contentViewport.style.justifyContent = Justify.FlexStart;
+                scrollAnim = label.experimental.animation.Start(horizontalScroller.lowValue, horizontalScroller.highValue, 10000, (x, y) => { UpdateTextScroll(x, y); });
+                scrollAnim.easingCurve = Easing.InOutBack;
+                scrollAnim.onAnimationCompleted = ResetTextScroll;
+                scrollAnim.autoRecycle = true;
+            } else {
+                contentViewport.style.justifyContent = Justify.Center;
+                if (scrollAnim != null) {
+                    scrollAnim.Stop();
+                }
+            }
         }
     }
 }
