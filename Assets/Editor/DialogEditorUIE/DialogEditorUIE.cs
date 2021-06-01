@@ -129,6 +129,7 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
         InitializeDefaultValues();
 
         if (deserialize) {
+            Debug.Log("Deserializing file");
             RestoreDialogFile(serializationFilePath);
             deserialize = false;
         }
