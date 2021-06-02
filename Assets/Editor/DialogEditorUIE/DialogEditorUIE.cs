@@ -23,12 +23,13 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
     int idCounter = 0;
     public static List<CharacterData> characters = new List<CharacterData>();
     float characterAdvance;
-    public string serializationFilePath;
-    public bool deserialize = false;
+    [SerializeField] string serializationFilePath;
+    //public bool deserialize = false;
     public Vector2 serializedScrollPosition = Vector2.zero;
     public static VisualElement root;
     public UnityEngine.SceneManagement.Scene prePlaybackScene;
     public static CharacterData mainSpeaker = null;
+    [SerializeField] bool hasSerializedData = false;
 
     public string[] speakerBoilerplateDialog = new string[] {
         "This is what we're going to do. You can deal with it, or you can cry about it.",
@@ -128,11 +129,15 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
 
         InitializeDefaultValues();
 
-        if (deserialize) {
-            Debug.Log("Deserializing file");
-            RestoreDialogFile(serializationFilePath);
-            deserialize = false;
-        }
+        //if (deserialize) {
+        //    Debug.Log("OnCreate: Deserializing file");
+        //    RestoreDialogFile(serializationFilePath);
+        //    deserialize = false;
+        //}
+        //if (hasSerializedData) {
+        //    Debug.Log("OnCreate: Restoring serialized data");
+        //    RestoreDialogFile(serializationFilePath);
+        //}
     }
 
     public void TestButton() {
@@ -218,6 +223,15 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
     }
 
     private void OnGUI() {
+        if (hasSerializedData) {
+            Debug.Log("Restoring serialized data on OnGUI");
+            //InitializeDefaultValues();
+            RestoreDialogFile(serializationFilePath);
+            Debug.Log("Discarding serialized data");
+            hasSerializedData = false;
+            serializationFilePath = "";
+        }
+
         //restore scrollbar position by restoring the value when the scrollView layout is inflated, usually it would be remembered by setting viewDataKey, but it doesn't seem to work - maybe because we're storing custom VisualElements rather than built-in
         if ((!float.IsNaN(scrollView.contentContainer.layout.height)) && (serializedScrollPosition != Vector2.zero)) {
             scrollView.scrollOffset = serializedScrollPosition;
@@ -346,7 +360,7 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
 
     //adds a new character, fails if it already exists
     public void AddCharacter(CharacterData character) {
-        CharacterData alreadyAdded = characters.Find(x => (x.characterName == character.characterName));
+        CharacterData alreadyAdded = characters.Find(x => (string.Equals(x.characterName,character.characterName)));
 
         if (alreadyAdded == null) {
             if (character.prefabPath != "") {
@@ -406,6 +420,7 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
 
                 //grab the file path for each character prefab
                 for (int i = 0; i < characters.Count; i++) {
+                    Debug.Log("Gen: Writing prefab path " + characters[i].prefabPath + " for charIndex " + i);
                     if (characters[i].prefabPath != "") {
                         paths.Add(characters[i].prefabPath.Substring(characters[i].prefabPath.LastIndexOf("Assets/")));
                         if (mainSpeaker != null) {
@@ -414,6 +429,9 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
                             }
                         }
                     } else {
+                        if (i > 0) {
+                            Debug.Log("SUSPICIOUS!");
+                        }
                         paths.Add("");
                     }
                 }
@@ -505,6 +523,7 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
                 }
 
                 long currentPos = writer.Seek(0, SeekOrigin.Current);
+                Debug.Log("Wrote " + currentPos + " bytes during serialization");
                 writer.Seek(18, SeekOrigin.Begin);
                 writer.Write(data.entryCount);
                 writer.Write(data.entryDataOffset);
@@ -545,6 +564,7 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
                                 mainSpeaker = character;
                             }
                         } else {
+                            Debug.Log("Found blank asset path for char index " + i);
                             AddCharacter(GenerateBlankCharacter());
                         }
                     }
@@ -576,16 +596,22 @@ public class DialogEditorUIE : EditorWindow, ISerializationCallbackReceiver {
 
     //hack around serialization, so we can do it by ourselves - we save to disk on assembly reloads, and then bring it back. kind of hacky, but it works (until it doesn't)
     public void OnBeforeSerialize() {
-        if (string.IsNullOrEmpty(serializationFilePath)) {
-            serializationFilePath = Application.dataPath + "/Data/dialogSerialization.lock";
-        }
+        if (!hasSerializedData) {
+            hasSerializedData = true;
+            if (string.IsNullOrEmpty(serializationFilePath)) {
+                serializationFilePath = Application.dataPath + "/Data/dialogSerialization.lock";
+            }
 
-        serializedScrollPosition = scrollView.scrollOffset;
-        GenerateDialogFile(false, serializationFilePath);
+            serializedScrollPosition = scrollView.scrollOffset;
+            GenerateDialogFile(false, serializationFilePath);
+        } else {
+            Debug.Log("Skipping serialized data serialization.");
+        }
     }
 
     public void OnAfterDeserialize() {
-        deserialize = true;
+        //Debug.Log("After deserialize");
+        //deserialize = true;
     }
 }
 

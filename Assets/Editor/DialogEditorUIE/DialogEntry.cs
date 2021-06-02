@@ -89,7 +89,7 @@ namespace DialogTool {
 
             //load character customizations
             SetCharacter(character);
-            UpdateAnimationUI();
+            //UpdateAnimationUI();
         }
 
         public void CheckIfMainSpeaker() {
@@ -141,11 +141,11 @@ namespace DialogTool {
                 customLabel = name;
             }
 
-            nameButton.label.text = name;
+            nameButton.SetLabelText(name);
         }
 
         public string GetSpeakerName() {
-            return nameButton.label.text;
+            return nameButton.GetLabelText();
         }
 
         //updates animation UI, hiding elementes in case of changes
@@ -165,9 +165,9 @@ namespace DialogTool {
                 } else {
                     animButton.style.display = DisplayStyle.Flex;
                     animBadge.style.display = DisplayStyle.Flex;
-                    animButton.text = "Animation____________";
+                    animButton.text = "Animation___";
                     if (string.IsNullOrEmpty(animClip)) {
-                        idleClip = EditorWindow.GetWindow<DialogEditorUIE>("UPDATE ANIM UI").GetCurrentCharacterIdle(character);
+                        //idleClip = EditorWindow.GetWindow<DialogEditorUIE>("UPDATE ANIM UI").GetCurrentCharacterIdle(character);
                         animBadge.name = "animation_clip_badge_idle";
                         animBadge.text = "Idle";
                     } else {
@@ -526,8 +526,7 @@ namespace DialogTool {
                         data.animIsIdle = true;
                     } else {
                         if (data.supportsAnimations) {
-                            Debug.Log("Tried to write an entry that supports anims with no animation or idle! This shoudn't happen unless you are saving a bad character! Here's the entry:");
-                            Debug.Log("Character Index: " + data.characterIndex);
+                            //Debug.Log("Tried to write an entry that supports anims with no animation or idle! This shoudn't happen unless you are saving a bad character! CharIndex: " + data.characterIndex);
                             data.animClipName = DialogEditorUIE.ANIM_ERROR_VALUE.ToCharArray();
                             data.animClipLength = (ushort)data.animClipName.Length;
                         } else {
@@ -767,7 +766,8 @@ public class DragManipulator : MouseManipulator {
 
 namespace DialogTool {
     public class ScrollingLabel : ScrollView {
-        public TextElement label;
+        string text;
+        private TextElement label;
         public float startWaitValue = 1f;
         public float endWaitValue = 1.25f;
         ValueAnimation<float> scrollAnim = null;
@@ -792,12 +792,10 @@ namespace DialogTool {
 
         public ScrollingLabel(string labelText) {
             EnableInClassList("unity-button", true);
-            //this.AddManipulator(new Clickable((x) => { ClickableCall(x); }));
             showHorizontal = false;
             showVertical = false;
-            style.width = 80;
             label = new TextElement() { text = "Really Long Text Goes Here Dude Look At This" };
-            //text.style.unityTextAlign = TextAnchor.MiddleCenter;
+            text = label.text;
             this.AddManipulator(new Clickable(() => { }));  //fixes drag event capturing
             this.contentViewport.style.flexDirection = FlexDirection.Row;
             this.contentContainer.style.flexDirection = FlexDirection.Row;
@@ -806,6 +804,7 @@ namespace DialogTool {
             this.RegisterCallback<TooltipEvent>((x) => { x.tooltip = label.text; x.rect = worldBound;}, TrickleDown.TrickleDown);
             label.RegisterCallback<GeometryChangedEvent>(CheckIfScrollNecessary, TrickleDown.NoTrickleDown);
             this.horizontalScroller.style.display = DisplayStyle.None;
+            this.verticalScroller.style.display = DisplayStyle.None;
         }
 
         public void DoAnim(VisualElement x, float y) {
@@ -820,6 +819,14 @@ namespace DialogTool {
                 anim.durationMs = 4000;
                 anim.Start();
             }
+        }
+
+        public string GetLabelText() {
+            return label.text;
+        }
+
+        public void SetLabelText(string newText) {
+            label.text = newText;
         }
 
         public void ResetTextScroll() {
