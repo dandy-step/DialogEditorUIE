@@ -19,7 +19,6 @@ xsi:schemaLocation="
     </engine:VisualElement>
     
     <engine:VisualElement class="VerticalContainer" name="dialog_portrait_container">
-      <!-- <engine:Image name="portrait" display="none"/> -->
       <dlg:ScrollingLabel name="name_button" text="John Doe"/>
       <engine:Button name="animation_button" text="Animation"/>
     </engine:VisualElement>
